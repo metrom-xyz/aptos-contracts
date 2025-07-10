@@ -1,0 +1,25 @@
+{
+    "type": "module",
+    "name": "@metrom-xyz/aptos-contracts",
+    "version": "0.1.0",
+    "description": "Aptos smart contracts for Metrom.",
+    "author": "Federico Luzzi <federico.luzzi@metrom.xyz>",
+    "license": "GPL-3.0-or-later",
+    "sideEffects": false,
+    "publishConfig": {
+        "access": "public"
+    },
+    "scripts": {
+        "lint": "aptos move lint && prettier --check .",
+        "format": "aptos move fmt && prettier --write .",
+        "lint:commit-message": "commitlint -e",
+        "prepare": "husky"
+    },
+    "devDependencies": {
+        "@commitlint/cli": "^19.5.0",
+        "@commitlint/config-conventional": "^19.5.0",
+        "husky": "^9.1.6",
+        "prettier": "^3.3.3",
+        "typescript": "^5.6.2"
+    }
+}
