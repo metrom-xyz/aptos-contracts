@@ -1,7 +1,5 @@
 #[test_only]
 module metrom::campaign_reward_tests {
-    use std::math64;
-
     use metrom::metrom;
     use metrom::tests_base;
 

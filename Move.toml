@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Federico Luzzi <federico.luzzi@metrom.xyz>"]
 
 [addresses]
-metrom = "0x12"
+metrom = "_"
 
 [dependencies.AptosFramework]
 git = "https://github.com/aptos-labs/aptos-framework.git"
@@ -12,5 +12,6 @@ rev = "mainnet"
 subdir = "aptos-framework"
 
 [dev-addresses]
+metrom = "0x42"
 
 [dev-dependencies]
