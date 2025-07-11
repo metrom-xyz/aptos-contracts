@@ -1,29 +1,36 @@
 #[test_only]
-module metrom::set_updater_tests {
+module metrom::transfer_ownership_tests {
+    use std::signer;
+
     use metrom::metrom::{Self, EForbidden};
     use metrom::tests_base;
 
     #[test(
-        aptos = @aptos_framework, metrom = @metrom, owner = @0x50, updater = @0x51
+        aptos = @aptos_framework, metrom = @metrom, owner = @0x50, account = @0x51
     )]
     #[expected_failure(abort_code = EForbidden)]
     fun fail_forbidden(
         aptos: &signer,
         metrom: &signer,
         owner: &signer,
-        updater: &signer
+        account: &signer
     ) {
         tests_base::init(aptos);
         tests_base::init_metrom_with_defaults(metrom, owner);
-        metrom::set_updater(updater, @0x60);
+        metrom::transfer_ownership(account, @0x10);
     }
 
     #[test(aptos = @aptos_framework, metrom = @metrom, owner = @0x50)]
     fun success(aptos: &signer, metrom: &signer, owner: &signer) {
         tests_base::init(aptos);
         tests_base::init_metrom_with_defaults(metrom, owner);
-        assert!(metrom::updater() != @0x60);
-        metrom::set_updater(owner, @0x60);
-        assert!(metrom::updater() == @0x60);
+
+        assert!(metrom::owner() == signer::address_of(owner));
+        assert!(metrom::pending_owner().is_none());
+
+        metrom::transfer_ownership(owner, @0x70);
+
+        assert!(metrom::owner() == signer::address_of(owner));
+        assert!(metrom::pending_owner().contains(&@0x70));
     }
 }

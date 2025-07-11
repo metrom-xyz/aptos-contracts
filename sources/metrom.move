@@ -104,10 +104,30 @@ module metrom::metrom {
     }
 
     #[event]
+    struct RecoverReward has drop, store {
+        campaign_id: vector<u8>,
+        token: address,
+        amount: u64,
+        receiver: address
+    }
+
+    #[event]
     struct ClaimFee has drop, store {
         token: address,
         amount: u64,
         receiver: address
+    }
+
+    #[event]
+    struct TransferCampaignOwnership has drop, store {
+        campaign_id: vector<u8>,
+        owner: address
+    }
+
+    #[event]
+    struct AcceptCampaignOwnership has drop, store {
+        campaign_id: vector<u8>,
+        owner: address
     }
 
     #[event]
@@ -148,49 +168,7 @@ module metrom::metrom {
 
     // data structs
 
-    struct RewardAmount has drop {
-        token: address,
-        amount: u64
-    }
-
-    struct RewardsCampaignBundle has drop {
-        from: u64,
-        to: u64,
-        kind: u32,
-        data: vector<u8>,
-        specification_hash: vector<u8>,
-        reward_tokens: vector<address>,
-        reward_amounts: vector<u64>
-    }
-
-    struct LeafData has drop {
-        owner: address,
-        token: address,
-        amount: u64
-    }
-
-    struct PointsCampaignBundle has drop {
-        from: u64,
-        to: u64,
-        kind: u32,
-        data: vector<u8>,
-        specification_hash: vector<u8>,
-        points: u64,
-        fee_token: address
-    }
-
-    struct PointsCampaign has store, key {
-        owner: address,
-        pending_owner: Option<address>,
-        from: u64,
-        to: u64,
-        kind: u32,
-        data: vector<u8>,
-        specification_hash: vector<u8>,
-        points: u64
-    }
-
-    struct ReadonlyPointsCampaign {
+    struct PointsCampaign has copy, store, key {
         owner: address,
         pending_owner: Option<address>,
         from: u64,
@@ -230,6 +208,7 @@ module metrom::metrom {
     }
 
     struct State has key {
+        treasury: SignerCapability,
         owner: address,
         pending_owner: Option<address>,
         updater: address,
@@ -241,8 +220,7 @@ module metrom::metrom {
         minimum_reward_token_rate: SmartTable<address, u64>,
         minimum_fee_token_rate: SmartTable<address, u64>,
         points_campaign: SmartTable<vector<u8>, PointsCampaign>,
-        rewards_campaign: SmartTable<vector<u8>, RewardsCampaign>,
-        treasury_account: SignerCapability
+        rewards_campaign: SmartTable<vector<u8>, RewardsCampaign>
     }
 
     // internal utility functions
@@ -260,13 +238,13 @@ module metrom::metrom {
     }
 
     inline fun borrow_mut_state_for_owner(owner: address): &mut State acquires State {
-        let state = borrow_global_mut<State>(state_obj_address());
+        let state = borrow_mut_state();
         assert!(state.owner == owner, EForbidden);
         state
     }
 
     inline fun borrow_mut_state_for_updater(updater: address): &mut State acquires State {
-        let state = borrow_global_mut<State>(state_obj_address());
+        let state = borrow_mut_state();
         assert!(state.updater == updater, EForbidden);
         state
     }
@@ -294,9 +272,16 @@ module metrom::metrom {
             EInvalidDuration
         );
         let duration = to - from;
-        assert!(duration < maximum_campaign_duration, EInvalidDuration);
+        assert!(duration <= maximum_campaign_duration, EInvalidDuration);
 
         duration
+    }
+
+    fun generate_raw_leaf(owner: address, token: address, amount: u64): vector<u8> {
+        let out = bcs::to_bytes(&owner);
+        out.append(bcs::to_bytes(&token));
+        out.append(bcs::to_bytes(&amount));
+        out
     }
 
     fun get_token_metadata(token: address): Object<Metadata> {
@@ -309,8 +294,7 @@ module metrom::metrom {
         from: &signer,
         required_amount: u64
     ): u64 {
-        let treasury_address =
-            account::get_signer_capability_address(&state.treasury_account);
+        let treasury_address = account::get_signer_capability_address(&state.treasury);
         let token_metadata = get_token_metadata(token);
         let balance_before =
             primary_fungible_store::balance(treasury_address, token_metadata);
@@ -336,13 +320,12 @@ module metrom::metrom {
         let constructor_ref = object::create_named_object(caller, METROM_STATE);
         let obj_signer = &object::generate_signer(&constructor_ref);
 
-        let (_, treasury_account) = account::create_resource_account(
-            caller, METROM_STATE
-        );
+        let (_, treasury) = account::create_resource_account(caller, METROM_STATE);
 
         move_to(
             obj_signer,
             State {
+                treasury,
                 owner: @0x00,
                 pending_owner: option::none(),
                 updater: @0x00,
@@ -354,8 +337,7 @@ module metrom::metrom {
                 minimum_reward_token_rate: smart_table::new(),
                 minimum_fee_token_rate: smart_table::new(),
                 points_campaign: smart_table::new(),
-                rewards_campaign: smart_table::new(),
-                treasury_account
+                rewards_campaign: smart_table::new()
             }
         );
     }
@@ -378,7 +360,7 @@ module metrom::metrom {
             EInvalidMinimumCampaignDuration
         );
 
-        let state = borrow_global_mut<State>(state_obj_address());
+        let state = borrow_mut_state();
         assert!(state.owner == @0x00, EAlreadyInitialized);
 
         state.owner = owner;
@@ -416,18 +398,14 @@ module metrom::metrom {
 
         let state = borrow_mut_state();
         let id =
-            aptos_hash::keccak256(
-                bcs::to_bytes(
-                    &RewardsCampaignBundle {
-                        from,
-                        to,
-                        kind,
-                        data,
-                        specification_hash,
-                        reward_tokens,
-                        reward_amounts
-                    }
-                )
+            rewards_campaign_id(
+                from,
+                to,
+                kind,
+                data,
+                specification_hash,
+                reward_tokens,
+                reward_amounts
             );
         assert!(!state.rewards_campaign.contains(id), EAlreadyExists);
 
@@ -459,7 +437,7 @@ module metrom::metrom {
                 EInvalidTokenAmount
             );
 
-            let received_amount = Self::take_token_amount(state, token, caller, amount);
+            let received_amount = take_token_amount(state, token, caller, amount);
             let fee_amount = amount * (resolved_fee as u64) / U64_1_000_000;
             let reward_amount_minus_fees = received_amount - fee_amount;
             *state.claimable_fees.borrow_mut_with_default(token, 0) += fee_amount;
@@ -521,19 +499,16 @@ module metrom::metrom {
 
         let state = borrow_mut_state();
         let id =
-            aptos_hash::keccak256(
-                bcs::to_bytes(
-                    &PointsCampaignBundle {
-                        from,
-                        to,
-                        kind,
-                        data,
-                        specification_hash,
-                        points,
-                        fee_token
-                    }
-                )
+            points_campaign_id(
+                from,
+                to,
+                kind,
+                data,
+                specification_hash,
+                points,
+                fee_token
             );
+
         assert!(!state.points_campaign.contains(id), EAlreadyExists);
 
         let duration =
@@ -566,9 +541,7 @@ module metrom::metrom {
             }
         );
 
-        let received_amount = Self::take_token_amount(
-            state, fee_token, caller, fee_amount
-        );
+        let received_amount = take_token_amount(state, fee_token, caller, fee_amount);
         *state.claimable_fees.borrow_mut_with_default(fee_token, 0) += received_amount;
     }
 
@@ -581,37 +554,32 @@ module metrom::metrom {
         event::emit(DistributeReward { campaign_id, root });
     }
 
-    public entry fun set_minimum_reward_token_rates(
-        caller: &signer, tokens: vector<address>, minimum_rates: vector<u64>
+    public entry fun set_minimum_reward_token_rate(
+        caller: &signer, token: address, minimum_rate: u64
     ) acquires State {
-        Self::set_minimum_token_rates(caller, tokens, minimum_rates, false);
+        set_minimum_token_rate(caller, token, minimum_rate, false);
     }
 
-    public entry fun set_minimum_fee_token_rates(
-        caller: &signer, tokens: vector<address>, minimum_rates: vector<u64>
+    public entry fun set_minimum_fee_token_rate(
+        caller: &signer, token: address, minimum_rate: u64
     ) acquires State {
-        Self::set_minimum_token_rates(caller, tokens, minimum_rates, true);
+        set_minimum_token_rate(caller, token, minimum_rate, true);
     }
 
-    fun set_minimum_token_rates(
+    fun set_minimum_token_rate(
         caller: &signer,
-        tokens: vector<address>,
-        minimum_rates: vector<u64>,
+        token: address,
+        minimum_rate: u64,
         fees: bool
     ) acquires State {
         let state = borrow_mut_state_for_updater(signer::address_of(caller));
-
-        for (i in 0..tokens.length()) {
-            let token = tokens.remove(i);
-            let minimum_rate = minimum_rates.remove(i);
-            if (fees) {
-                state.minimum_fee_token_rate.upsert(token, minimum_rate);
-                event::emit(SetMinimumFeeTokenRate { token, minimum_rate });
-            } else {
-                state.minimum_reward_token_rate.upsert(token, minimum_rate);
-                event::emit(SetMinimumRewardTokenRate { token, minimum_rate });
-            }
-        };
+        if (fees) {
+            state.minimum_fee_token_rate.upsert(token, minimum_rate);
+            event::emit(SetMinimumFeeTokenRate { token, minimum_rate });
+        } else {
+            state.minimum_reward_token_rate.upsert(token, minimum_rate);
+            event::emit(SetMinimumRewardTokenRate { token, minimum_rate });
+        }
     }
 
     fun process_reward_claim(
@@ -628,10 +596,9 @@ module metrom::metrom {
 
         let leaf =
             aptos_hash::keccak256(
-                aptos_hash::keccak256(
-                    bcs::to_bytes(&LeafData { owner: claim_owner, token, amount })
-                )
+                aptos_hash::keccak256(generate_raw_leaf(claim_owner, token, amount))
             );
+        // TODO: find a way to do this
         // if (!MerkleProof.verifyCalldata(_bundle.proof, _campaignRoot, _leaf)) revert InvalidProof();
 
         let claimed_amount = reward.claimed.borrow_mut(claim_owner);
@@ -675,8 +642,7 @@ module metrom::metrom {
         receiver: address
     ) acquires State {
         let state = borrow_mut_state();
-        let treasury_signer =
-            account::create_signer_with_capability(&state.treasury_account);
+        let treasury_signer = account::create_signer_with_capability(&state.treasury);
 
         let caller_address = signer::address_of(caller);
 
@@ -707,8 +673,7 @@ module metrom::metrom {
         receiver: address
     ) acquires State {
         let state = borrow_mut_state();
-        let treasury_signer =
-            account::create_signer_with_capability(&state.treasury_account);
+        let treasury_signer = account::create_signer_with_capability(&state.treasury);
 
         let (root, claimable_reward) =
             claimable_reward_and_root(caller, state, campaign_id, token, true);
@@ -724,7 +689,7 @@ module metrom::metrom {
                 receiver
             );
         event::emit(
-            ClaimReward { campaign_id, token, amount: claimed_amount, receiver }
+            RecoverReward { campaign_id, token, amount: claimed_amount, receiver }
         );
     }
 
@@ -732,8 +697,7 @@ module metrom::metrom {
         caller: &signer, token: address, receiver: address
     ) acquires State {
         let state = borrow_mut_state_for_owner(signer::address_of(caller));
-        let treasury_signer =
-            account::create_signer_with_capability(&state.treasury_account);
+        let treasury_signer = account::create_signer_with_capability(&state.treasury);
 
         let amount = state.claimable_fees.remove(token);
         primary_fungible_store::transfer(
@@ -745,6 +709,48 @@ module metrom::metrom {
         event::emit(ClaimFee { token, amount, receiver });
     }
 
+    public entry fun transfer_campaign_ownership(
+        caller: &signer, id: vector<u8>, owner: address
+    ) acquires State {
+        let caller_address = signer::address_of(caller);
+
+        let state = borrow_mut_state();
+        if (state.rewards_campaign.contains(id)) {
+            let rewards_campaign = state.rewards_campaign.borrow_mut(id);
+            assert!(rewards_campaign.owner == caller_address, EForbidden);
+            rewards_campaign.pending_owner = option::some(owner);
+        } else {
+            let points_campaign = state.points_campaign.borrow_mut(id);
+            assert!(points_campaign.owner == caller_address, EForbidden);
+            points_campaign.pending_owner = option::some(owner);
+        };
+
+        event::emit(TransferCampaignOwnership { campaign_id: id, owner });
+    }
+
+    public entry fun accept_campaign_ownership(
+        caller: &signer, id: vector<u8>
+    ) acquires State {
+        let caller_address = signer::address_of(caller);
+        let state = borrow_mut_state();
+
+        if (state.rewards_campaign.contains(id)) {
+            let rewards_campaign = state.rewards_campaign.borrow_mut(id);
+            assert!(
+                rewards_campaign.pending_owner.contains(&caller_address), EForbidden
+            );
+            rewards_campaign.owner = caller_address;
+            rewards_campaign.pending_owner = option::none();
+        } else {
+            let points_campaign = state.points_campaign.borrow_mut(id);
+            assert!(points_campaign.owner == caller_address, EForbidden);
+            points_campaign.owner = caller_address;
+            points_campaign.pending_owner = option::none();
+        };
+
+        event::emit(AcceptCampaignOwnership { campaign_id: id, owner: caller_address });
+    }
+
     public entry fun transfer_ownership(caller: &signer, owner: address) acquires State {
         borrow_mut_state_for_owner(signer::address_of(caller)).pending_owner = option::some(
             owner
@@ -752,8 +758,8 @@ module metrom::metrom {
         event::emit(TransferOwnership { owner });
     }
 
-    public entry fun accept_ownership(caller: &signer, old_owner: address) acquires State {
-        let state = borrow_mut_state_for_owner(old_owner);
+    public entry fun accept_ownership(caller: &signer) acquires State {
+        let state = borrow_mut_state();
         let new_owner_address = signer::address_of(caller);
         assert!(state.pending_owner.contains(&new_owner_address), EForbidden);
         state.owner = new_owner_address;
@@ -809,6 +815,46 @@ module metrom::metrom {
     // view functions
 
     #[view]
+    public fun rewards_campaign_id(
+        from: u64,
+        to: u64,
+        kind: u32,
+        data: vector<u8>,
+        specification_hash: vector<u8>,
+        reward_tokens: vector<address>,
+        reward_amounts: vector<u64>
+    ): vector<u8> {
+        let out = bcs::to_bytes(&from);
+        out.append(bcs::to_bytes(&to));
+        out.append(bcs::to_bytes(&kind));
+        out.append(data);
+        out.append(specification_hash);
+        out.append(bcs::to_bytes(&reward_tokens));
+        out.append(bcs::to_bytes(&reward_amounts));
+        aptos_hash::keccak256(out)
+    }
+
+    #[view]
+    public fun points_campaign_id(
+        from: u64,
+        to: u64,
+        kind: u32,
+        data: vector<u8>,
+        specification_hash: vector<u8>,
+        points: u64,
+        fee_token: address
+    ): vector<u8> {
+        let out = bcs::to_bytes(&from);
+        out.append(bcs::to_bytes(&to));
+        out.append(bcs::to_bytes(&kind));
+        out.append(data);
+        out.append(specification_hash);
+        out.append(bcs::to_bytes(&points));
+        out.append(bcs::to_bytes(&fee_token));
+        aptos_hash::keccak256(out)
+    }
+
+    #[view]
     public fun rewards_campaign_by_id(id: vector<u8>): ReadonlyRewardsCampaign acquires State {
         let campaign = borrow_state().rewards_campaign.borrow(id);
 
@@ -825,33 +871,60 @@ module metrom::metrom {
     }
 
     #[view]
-    public fun points_campaign_by_id(id: vector<u8>): ReadonlyPointsCampaign acquires State {
-        let campaign = borrow_state().points_campaign.borrow(id);
-
-        ReadonlyPointsCampaign {
-            owner: campaign.owner,
-            pending_owner: campaign.pending_owner,
-            from: campaign.from,
-            to: campaign.to,
-            kind: campaign.kind,
-            data: campaign.data,
-            specification_hash: campaign.specification_hash,
-            points: campaign.points
-        }
+    public fun points_campaign_by_id(id: vector<u8>): PointsCampaign acquires State {
+        *borrow_state().points_campaign.borrow(id)
     }
 
     #[view]
     public fun campaign_reward(id: vector<u8>, token: address): u64 acquires State {
-        borrow_state().rewards_campaign.borrow(id).reward.borrow(token).amount
+        let state = borrow_state();
+        if (!state.rewards_campaign.contains(id)) {
+            return 0;
+        };
+
+        let campaign = state.rewards_campaign.borrow(id);
+        if (!campaign.reward.contains(token)) {
+            return 0;
+        };
+
+        campaign.reward.borrow(token).amount
     }
 
     #[view]
     public fun claimed_campaign_reward(
         id: vector<u8>, token: address, account: address
     ): u64 acquires State {
-        *borrow_state().rewards_campaign.borrow(id).reward.borrow(token).claimed.borrow(
-            account
-        )
+        let state = borrow_state();
+        if (!state.rewards_campaign.contains(id)) {
+            return 0;
+        };
+
+        let campaign = state.rewards_campaign.borrow(id);
+        if (!campaign.reward.contains(token)) {
+            return 0;
+        };
+
+        *campaign.reward.borrow(token).claimed.borrow_with_default(account, &0)
+    }
+
+    #[view]
+    public fun minimum_reward_token_rate(token: address): u64 acquires State {
+        *borrow_state().minimum_reward_token_rate.borrow_with_default(token, &0)
+    }
+
+    #[view]
+    public fun minimum_fee_token_rate(token: address): u64 acquires State {
+        *borrow_state().minimum_fee_token_rate.borrow_with_default(token, &0)
+    }
+
+    #[view]
+    public fun fee_rebate(account: address): u32 acquires State {
+        *borrow_state().fee_rebate.borrow_with_default(account, &0)
+    }
+
+    #[view]
+    public fun claimable_fees(token: address): u64 acquires State {
+        *borrow_state().claimable_fees.borrow_with_default(token, &0)
     }
 
     #[view]
@@ -872,16 +945,6 @@ module metrom::metrom {
     #[view]
     public fun fee(): u32 acquires State {
         borrow_state().fee
-    }
-
-    #[view]
-    public fun fee_rebate(account: address): u32 acquires State {
-        *borrow_state().fee_rebate.borrow_with_default(account, &0)
-    }
-
-    #[view]
-    public fun claimable_fees(token: address): u64 acquires State {
-        *borrow_state().claimable_fees.borrow_with_default(token, &0)
     }
 
     #[view]
