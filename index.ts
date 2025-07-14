@@ -1,5 +1,5 @@
 export interface ChainContract {
-    address: string;
+    address: `0x${string}`;
     blockCreated: number;
 }
 
