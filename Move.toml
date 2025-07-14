@@ -13,5 +13,6 @@ subdir = "aptos-framework"
 
 [dev-addresses]
 metrom = "0x42"
+test-account = "0x6c757a7a69666f7373"
 
 [dev-dependencies]
