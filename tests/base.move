@@ -59,9 +59,19 @@ module metrom::test_token {
         let refs = borrow_global<Refs>(asset_address(asset));
         fungible_asset::mint_to(&refs.mint_ref, store, amount);
     }
+    
+    public fun balance_of(
+        asset: Object<Metadata>, account: address
+    ): u64 {
+        primary_fungible_store::balance(account, asset)
+    }
 
     public fun asset_address(asset: Object<Metadata>): address {
         object::object_address(&asset)
+    }
+
+    public fun get_asset(token: address): Object<Metadata> {
+        object::address_to_object<Metadata>(token)
     }
 }
 

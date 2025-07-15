@@ -10,7 +10,6 @@ module metrom::metrom {
     use std::vector;
     use std::timestamp;
     use std::aptos_hash;
-    use std::debug;
 
     use aptos_framework::account::{Self, SignerCapability};
     use aptos_framework::object::{Self, Object};
@@ -262,6 +261,7 @@ module metrom::metrom {
     const EInvalidStartTime: u64 = 22;
     const EInvalidDuration: u64 = 23;
     const EZeroAddressFeeToken: u64 = 24;
+    const EInvalidFeeToken: u64 = 25;
 
     // data structs
 
@@ -522,7 +522,6 @@ module metrom::metrom {
         assert!(rewards_len <= MAX_REWARDS_PER_CAMPAIGN, ETooManyRewards);
         assert!(rewards_len == reward_amounts.length(), EInconsistentRewards);
 
-        let state = borrow_mut_state();
         let id =
             rewards_campaign_id(
                 from,
@@ -533,6 +532,8 @@ module metrom::metrom {
                 reward_tokens,
                 reward_amounts
             );
+            
+        let state = borrow_mut_state();
         assert!(!state.rewards_campaign.contains(id), EAlreadyExists);
 
         let duration =
@@ -857,9 +858,10 @@ module metrom::metrom {
     public entry fun claim_fees(
         caller: &signer, token: address, receiver: address
     ) acquires State {
+        assert!(receiver != @0x0, EZeroAddressReceiver);
         let state = borrow_mut_state_for_owner(signer::address_of(caller));
+        assert!(state.claimable_fees.contains(token), EInvalidFeeToken);
         let treasury_signer = account::create_signer_with_capability(&state.treasury);
-
         let amount = state.claimable_fees.remove(token);
         primary_fungible_store::transfer(
             &treasury_signer,
