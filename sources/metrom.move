@@ -10,6 +10,7 @@ module metrom::metrom {
     use std::vector;
     use std::timestamp;
     use std::aptos_hash;
+    use std::debug;
 
     use aptos_framework::account::{Self, SignerCapability};
     use aptos_framework::object::{Self, Object};
@@ -21,7 +22,7 @@ module metrom::metrom {
     // constants
 
     const METROM_STATE: vector<u8> = b"metrom_state";
-    const ZERO_BYTES_32: vector<u8> = b"0x0000000000000000000000000000000000000000000000000000000000000000";
+    const ZERO_BYTES_32: vector<u8> = x"0000000000000000000000000000000000000000000000000000000000000000";
 
     const U32_1_000_000: u32 = 1_000_000;
     const U64_1_000_000: u64 = 1_000_000;
@@ -64,7 +65,7 @@ module metrom::metrom {
         to: u64,
         kind: u32,
         data: vector<u8>,
-        specification_hash: vector<u8>,
+        specification_hash: Option<vector<u8>>,
         reward_tokens: vector<address>,
         reward_amounts: vector<u64>,
         reward_fees: vector<u64>
@@ -89,7 +90,7 @@ module metrom::metrom {
         to: u64,
         kind: u32,
         data: vector<u8>,
-        specification_hash: vector<u8>,
+        specification_hash: Option<vector<u8>>,
         points: u64,
         fee_token: address,
         fee: u64
@@ -260,19 +261,20 @@ module metrom::metrom {
     const EInvalidRebate: u64 = 21;
     const EInvalidStartTime: u64 = 22;
     const EInvalidDuration: u64 = 23;
+    const EZeroAddressFeeToken: u64 = 24;
 
     // data structs
 
     /// @notice Represents a points based campaign in the module's state, with its owner,
     /// running period, type, data, specification hash and points information.
-    struct PointsCampaign has copy, store, key {
+    struct PointsCampaign has copy, store, drop, key {
         owner: address,
         pending_owner: Option<address>,
         from: u64,
         to: u64,
         kind: u32,
         data: vector<u8>,
-        specification_hash: vector<u8>,
+        specification_hash: Option<vector<u8>>,
         points: u64
     }
 
@@ -293,21 +295,21 @@ module metrom::metrom {
         to: u64,
         kind: u32,
         data: vector<u8>,
-        specification_hash: vector<u8>,
-        root: vector<u8>,
+        specification_hash: Option<vector<u8>>,
+        root: Option<vector<u8>>,
         reward: SmartTable<address, Reward>
     }
 
     /// @notice Represents a readonly rewards based campaign.
-    struct ReadonlyRewardsCampaign {
+    struct ReadonlyRewardsCampaign has drop {
         owner: address,
         pending_owner: Option<address>,
         from: u64,
         to: u64,
         kind: u32,
         data: vector<u8>,
-        specification_hash: vector<u8>,
-        root: vector<u8>
+        specification_hash: Option<vector<u8>>,
+        root: Option<vector<u8>>
     }
 
     /// @notice The module's overall operating state. Keeps track of protocol parameters and
@@ -354,16 +356,19 @@ module metrom::metrom {
         state
     }
 
-    fun validate_hash(hash: vector<u8>) {
+    fun validate_hash(hash: Option<vector<u8>>) {
+        if (hash.is_none()) return;
+
+        let hash = hash.borrow();
         let hash_len = hash.length();
         assert!(
-            hash_len == 0 || (hash_len == 32 && hash != ZERO_BYTES_32),
+            hash_len == 32 && *hash != ZERO_BYTES_32,
             EInvalidHash
         );
     }
 
     fun validate_campaign_base_returning_duration(
-        specification_hash: vector<u8>,
+        specification_hash: Option<vector<u8>>,
         from: u64,
         to: u64,
         minimum_campaign_duration: u64,
@@ -502,13 +507,13 @@ module metrom::metrom {
     /// pointing fo a file containing the JSON specification for the campaign.
     /// @param reward_tokens The reward tokens for the campaign.
     /// @param reward_amounts The reward amounts for the campaign.
-    public entry fun create_reward_campaign(
+    public entry fun create_rewards_campaign(
         caller: &signer,
         from: u64,
         to: u64,
         kind: u32,
         data: vector<u8>,
-        specification_hash: vector<u8>,
+        specification_hash: Option<vector<u8>>,
         reward_tokens: vector<address>,
         reward_amounts: vector<u64>
     ) acquires State {
@@ -547,10 +552,10 @@ module metrom::metrom {
         let reward = smart_table::new<address, Reward>();
         let reward_fees = vector::empty<u64>();
         for (i in 0..rewards_len) {
-            let token = reward_tokens.remove(i);
+            let token = reward_tokens[i];
             assert!(token != @0x0, EZeroAddressRewardToken);
 
-            let amount = reward_amounts.remove(i);
+            let amount = reward_amounts[i];
             assert!(amount > 0, ENoRewardAmount);
 
             let minimum_reward_token_rate =
@@ -588,7 +593,7 @@ module metrom::metrom {
                 kind,
                 data,
                 specification_hash,
-                root: vector::empty(),
+                root: option::none(),
                 reward
             }
         );
@@ -624,11 +629,12 @@ module metrom::metrom {
         to: u64,
         kind: u32,
         data: vector<u8>,
-        specification_hash: vector<u8>,
+        specification_hash: Option<vector<u8>>,
         points: u64,
         fee_token: address
     ) acquires State {
         assert!(points > 0, ENoPoints);
+        assert!(fee_token != @0x0, EZeroAddressFeeToken);
 
         let state = borrow_mut_state();
         let id =
@@ -655,7 +661,8 @@ module metrom::metrom {
 
         let caller_address = signer::address_of(caller);
         let fee_rebate = *state.fee_rebate.borrow_with_default(caller_address, &0);
-        let minimum_fee_token_rate = *state.minimum_fee_token_rate.borrow(fee_token);
+        let minimum_fee_token_rate =
+            *state.minimum_fee_token_rate.borrow_with_default(fee_token, &0);
         assert!(minimum_fee_token_rate > 0, EDisallowedFeeToken);
         let fee_amount = minimum_fee_token_rate * duration / U64_1_HOUR_SECONDS;
         let fee_amount = fee_amount * ((U32_1_000_000 - fee_rebate) as u64) / U64_1_000_000;
@@ -685,10 +692,10 @@ module metrom::metrom {
     public entry fun distribute_rewards(
         caller: &signer, campaign_id: vector<u8>, root: vector<u8>
     ) acquires State {
-        validate_hash(root);
+        validate_hash(option::some(root));
         let state = borrow_mut_state_for_updater(signer::address_of(caller));
         assert!(state.rewards_campaign.contains(campaign_id), ENonExistentCampaign);
-        state.rewards_campaign.borrow_mut(campaign_id).root = root;
+        state.rewards_campaign.borrow_mut(campaign_id).root = option::some(root);
         event::emit(DistributeReward { campaign_id, root });
     }
 
@@ -748,8 +755,7 @@ module metrom::metrom {
         let campaign = state.rewards_campaign.borrow_mut(campaign_id);
         assert!(campaign.reward.contains(token), ENonExistentReward);
         let reward = campaign.reward.borrow_mut(token);
-        if (enforce_campaign_owner)
-            assert!(caller_address == campaign.owner, EForbidden);
+        if (enforce_campaign_owner) assert!(caller_address == campaign.owner, EForbidden);
 
         let leaf =
             aptos_hash::keccak256(
@@ -831,7 +837,14 @@ module metrom::metrom {
                 campaign_id,
                 token,
                 amount: process_reward_claim(
-                    signer::address_of(caller), campaign_id, @0x0, true, proof, token, amount, receiver
+                    signer::address_of(caller),
+                    campaign_id,
+                    @0x0,
+                    true,
+                    proof,
+                    token,
+                    amount,
+                    receiver
                 ),
                 receiver
             }
@@ -871,10 +884,12 @@ module metrom::metrom {
             let rewards_campaign = state.rewards_campaign.borrow_mut(id);
             assert!(rewards_campaign.owner == caller_address, EForbidden);
             rewards_campaign.pending_owner = option::some(owner);
-        } else {
+        } else if (state.points_campaign.contains(id)) {
             let points_campaign = state.points_campaign.borrow_mut(id);
             assert!(points_campaign.owner == caller_address, EForbidden);
             points_campaign.pending_owner = option::some(owner);
+        } else {
+            assert!(false, ENonExistentCampaign);
         };
 
         event::emit(TransferCampaignOwnership { campaign_id: id, owner });
@@ -896,11 +911,13 @@ module metrom::metrom {
             );
             rewards_campaign.owner = caller_address;
             rewards_campaign.pending_owner = option::none();
-        } else {
+        } else if (state.points_campaign.contains(id)) {
             let points_campaign = state.points_campaign.borrow_mut(id);
             assert!(points_campaign.owner == caller_address, EForbidden);
             points_campaign.owner = caller_address;
             points_campaign.pending_owner = option::none();
+        } else {
+            assert!(false, ENonExistentCampaign);
         };
 
         event::emit(AcceptCampaignOwnership { campaign_id: id, owner: caller_address });
@@ -976,7 +993,7 @@ module metrom::metrom {
     ) acquires State {
         let state = borrow_mut_state_for_owner(signer::address_of(caller));
         assert!(
-            maximum_campaign_duration > state.maximum_campaign_duration,
+            maximum_campaign_duration > state.minimum_campaign_duration,
             EInvalidMaximumCampaignDuration
         );
         state.maximum_campaign_duration = maximum_campaign_duration;
@@ -991,7 +1008,7 @@ module metrom::metrom {
         to: u64,
         kind: u32,
         data: vector<u8>,
-        specification_hash: vector<u8>,
+        specification_hash: Option<vector<u8>>,
         reward_tokens: vector<address>,
         reward_amounts: vector<u64>
     ): vector<u8> {
@@ -1011,7 +1028,7 @@ module metrom::metrom {
         to: u64,
         kind: u32,
         data: vector<u8>,
-        specification_hash: vector<u8>,
+        specification_hash: Option<vector<u8>>,
         points: u64,
         fee_token: address
     ): vector<u8> {
@@ -1128,8 +1145,91 @@ module metrom::metrom {
         borrow_state().maximum_campaign_duration
     }
 
+    // test-only functions
+
     #[test_only]
     public fun test_init_module(caller: &signer) {
         init_module(caller);
+    }
+
+    #[test_only]
+    public fun assert_rewards_campaign_full(
+        campaign_id: vector<u8>,
+        owner: address,
+        pending_owner: Option<address>,
+        from: u64,
+        to: u64,
+        kind: u32,
+        data: vector<u8>,
+        specification_hash: Option<vector<u8>>,
+        root: Option<vector<u8>>,
+        reward_tokens: vector<address>,
+        reward_amounts: vector<u64>,
+        fee_amounts: vector<u64>
+    ) acquires State {
+        let campaign = rewards_campaign_by_id(campaign_id);
+
+        assert!(campaign.owner == owner);
+        assert!(campaign.pending_owner == pending_owner);
+        assert!(campaign.from == from);
+        assert!(campaign.to == to);
+        assert!(campaign.kind == kind);
+        assert!(campaign.data == data);
+        assert!(campaign.specification_hash == specification_hash);
+        assert!(campaign.root == root);
+
+        for (i in 0..reward_tokens.length()) {
+            assert!(
+                campaign_reward(campaign_id, reward_tokens[i]) == reward_amounts[i]
+            );
+            assert!(
+                claimable_fees(reward_tokens[i]) == fee_amounts[i]
+            );
+        }
+    }
+
+    #[test_only]
+    public fun assert_points_campaign_full(
+        campaign_id: vector<u8>,
+        owner: address,
+        pending_owner: Option<address>,
+        from: u64,
+        to: u64,
+        kind: u32,
+        data: vector<u8>,
+        specification_hash: Option<vector<u8>>,
+        points: u64,
+        fee_token: address,
+        fee_amount: u64
+    ) acquires State {
+        let campaign = points_campaign_by_id(campaign_id);
+
+        assert!(campaign.owner == owner);
+        assert!(campaign.pending_owner == pending_owner);
+        assert!(campaign.from == from);
+        assert!(campaign.to == to);
+        assert!(campaign.kind == kind);
+        assert!(campaign.data == data);
+        assert!(campaign.specification_hash == specification_hash);
+        assert!(campaign.points == points);
+        assert!(claimable_fees(fee_token) == fee_amount);
+    }
+
+    #[test_only]
+    public fun assert_rewards_campaign_root(
+        campaign_id: vector<u8>, expected: vector<u8>
+    ) acquires State {
+        assert!(rewards_campaign_by_id(campaign_id).root == option::some(expected));
+    }
+
+    #[test_only]
+    public fun assert_rewards_campaign_owner_and_pending_owner(
+        campaign_id: vector<u8>,
+        expected_owner: address,
+        expected_pending_owner: Option<address>
+    ) acquires State {
+        let campaign = rewards_campaign_by_id(campaign_id);
+        assert!(campaign.owner == expected_owner);
+        assert!(campaign.pending_owner == expected_pending_owner);
     }
 }
