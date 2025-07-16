@@ -10,7 +10,7 @@ export enum SupportedChain {
 export const ADDRESS: Record<SupportedChain, ChainContract> = {
     [SupportedChain.Devnet]: {
         address:
-            "0xaab676170774448375f2b01bdc6b1d013d2f3d73e869dddbb405b045773b5bc2",
+            "0xb6f5688319d72283325323d3545554a9505a1876cbc7c5eb5a88647abe18cabc",
         blockCreated: 15406126,
     },
 };

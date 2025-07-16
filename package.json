@@ -20,6 +20,7 @@
         "lint:commit-message": "commitlint -e",
         "prepare": "husky",
         "publish-package": "tsx ./scripts/publish-package.ts",
+        "publish-package:devnet": "pnpm publish-package --network devnet --updater \"0x00000000000000000000000000000000000000000000006c757a7a69666f7373\" --fee 15000 --minimum-campaign-duration 600 --maximum-campaign-duration 7776000 --owner \"0x00000000000000000000000000000000000000000000006c757a7a69666f7373\"",
         "prepublishOnly": "tsc"
     },
     "devDependencies": {
