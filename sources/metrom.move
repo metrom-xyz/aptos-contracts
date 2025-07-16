@@ -262,6 +262,8 @@ module metrom::metrom {
     const EInvalidDuration: u64 = 23;
     const EZeroAddressFeeToken: u64 = 24;
     const EInvalidFeeToken: u64 = 25;
+    const EInvalidProof: u64 = 26;
+    const ENoRoot: u64 = 27;
 
     // data structs
 
@@ -532,7 +534,7 @@ module metrom::metrom {
                 reward_tokens,
                 reward_amounts
             );
-            
+
         let state = borrow_mut_state();
         assert!(!state.rewards_campaign.contains(id), EAlreadyExists);
 
@@ -754,16 +756,21 @@ module metrom::metrom {
 
         assert!(state.rewards_campaign.contains(campaign_id), ENonExistentCampaign);
         let campaign = state.rewards_campaign.borrow_mut(campaign_id);
+        assert!(campaign.root.is_some(), ENoRoot);
         assert!(campaign.reward.contains(token), ENonExistentReward);
         let reward = campaign.reward.borrow_mut(token);
         if (enforce_campaign_owner) assert!(caller_address == campaign.owner, EForbidden);
 
-        let leaf =
-            aptos_hash::keccak256(
-                aptos_hash::keccak256(generate_raw_leaf(claim_owner, token, amount))
-            );
-        // TODO: find a way to do this
-        // if (!MerkleProof.verifyCalldata(_bundle.proof, _campaignRoot, _leaf)) revert InvalidProof();
+        assert!(
+            verify_merkle_proof(
+                *campaign.root.borrow(),
+                proof,
+                claim_owner,
+                token,
+                amount
+            ),
+            EInvalidProof
+        );
 
         let already_claimed_amount =
             reward.claimed.borrow_mut_with_default(claim_owner, 0u64);
@@ -782,6 +789,55 @@ module metrom::metrom {
         );
 
         claimed_amount
+    }
+
+    fun verify_merkle_proof(
+        root: vector<u8>,
+        proof: vector<vector<u8>>,
+        claim_owner: address,
+        token: address,
+        amount: u64
+    ): bool {
+        let leaf =
+            aptos_hash::keccak256(
+                aptos_hash::keccak256(generate_raw_leaf(claim_owner, token, amount))
+            );
+
+        let computed_hash = leaf;
+        for (i in 0..proof.length()) {
+            let proof_item = proof[i];
+            computed_hash =
+                if (hash_a_less_than_b(computed_hash, proof_item)) {
+                    computed_hash.append(proof_item);
+                    aptos_hash::keccak256(computed_hash)
+                } else {
+                    proof_item.append(computed_hash);
+                    aptos_hash::keccak256(proof_item)
+                }
+        };
+
+        computed_hash == root
+    }
+
+    fun hash_a_less_than_b(a: vector<u8>, b: vector<u8>): bool {
+        let a_len = a.length();
+        let b_len = b.length();
+        assert!(a_len == 32 && a_len == b_len, EInvalidHash);
+
+        for (i in 0..a_len) {
+            let a_item = a[i];
+            let b_item = b[i];
+
+            if (a_item == b_item) {
+                continue;
+            } else if (a_item < b_item) {
+                return true;
+            } else {
+                return false;
+            };
+        };
+
+        return false
     }
 
     /// @notice Claims outstanding rewards on a given rewards campaign.
@@ -1145,6 +1201,11 @@ module metrom::metrom {
     #[view]
     public fun maximum_campaign_duration(): u64 acquires State {
         borrow_state().maximum_campaign_duration
+    }
+
+    #[view]
+    public fun treasury_address(): address acquires State {
+        account::get_signer_capability_address(&borrow_state().treasury)
     }
 
     // test-only functions
