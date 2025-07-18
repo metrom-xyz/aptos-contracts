@@ -22,7 +22,14 @@ module metrom::claim_rewards_tests {
         tests_base::init(aptos);
         tests_base::init_metrom_with_defaults(metrom, user);
         let (campaign_id, _) = tests_base::create_default_rewards_campaign(user, user);
-        metrom::claim_rewards(user, campaign_id, vector[], @0x1, 10, @0x0);
+        metrom::claim_rewards(
+            user,
+            vector[campaign_id],
+            vector[vector[]],
+            vector[@0x1],
+            vector[10],
+            vector[@0x0]
+        );
     }
 
     #[test(aptos = @aptos_framework, metrom = @metrom, user = @0x50)]
@@ -33,7 +40,14 @@ module metrom::claim_rewards_tests {
         tests_base::init(aptos);
         tests_base::init_metrom_with_defaults(metrom, user);
         let (campaign_id, _) = tests_base::create_default_rewards_campaign(user, user);
-        metrom::claim_rewards(user, campaign_id, vector[], @0x0, 10, @0x1);
+        metrom::claim_rewards(
+            user,
+            vector[campaign_id],
+            vector[vector[]],
+            vector[@0x0],
+            vector[10],
+            vector[@0x1]
+        );
     }
 
     #[test(aptos = @aptos_framework, metrom = @metrom, user = @0x50)]
@@ -42,7 +56,14 @@ module metrom::claim_rewards_tests {
         tests_base::init(aptos);
         tests_base::init_metrom_with_defaults(metrom, user);
         let (campaign_id, _) = tests_base::create_default_rewards_campaign(user, user);
-        metrom::claim_rewards(user, campaign_id, vector[], @0x1, 0, @0x1);
+        metrom::claim_rewards(
+            user,
+            vector[campaign_id],
+            vector[vector[]],
+            vector[@0x1],
+            vector[0],
+            vector[@0x1]
+        );
     }
 
     #[test(aptos = @aptos_framework, metrom = @metrom, user = @0x50)]
@@ -54,11 +75,13 @@ module metrom::claim_rewards_tests {
         tests_base::init_metrom_with_defaults(metrom, user);
         metrom::claim_rewards(
             user,
-            x"0000000000000000000000000000000000000000000000000000000000000001",
-            vector[],
-            @0x1,
-            1,
-            @0x1
+            vector[
+                x"0000000000000000000000000000000000000000000000000000000000000001"
+            ],
+            vector[vector[]],
+            vector[@0x1],
+            vector[1],
+            vector[@0x1]
         );
     }
 
@@ -68,7 +91,14 @@ module metrom::claim_rewards_tests {
         tests_base::init(aptos);
         tests_base::init_metrom_with_defaults(metrom, user);
         let (campaign_id, _) = tests_base::create_default_rewards_campaign(user, user);
-        metrom::claim_rewards(user, campaign_id, vector[], @0x1, 1, @0x1);
+        metrom::claim_rewards(
+            user,
+            vector[campaign_id],
+            vector[vector[]],
+            vector[@0x1],
+            vector[1],
+            vector[@0x1]
+        );
     }
 
     #[test(aptos = @aptos_framework, metrom = @metrom, user = @0x50)]
@@ -84,7 +114,14 @@ module metrom::claim_rewards_tests {
             campaign_id,
             x"0000000000000000000000000000000000000000000000000000000000000001"
         );
-        metrom::claim_rewards(user, campaign_id, vector[], @0x1, 1, @0x1);
+        metrom::claim_rewards(
+            user,
+            vector[campaign_id],
+            vector[vector[]],
+            vector[@0x1],
+            vector[1],
+            vector[@0x1]
+        );
     }
 
     #[test(aptos = @aptos_framework, metrom = @metrom, user = @0x50)]
@@ -105,13 +142,15 @@ module metrom::claim_rewards_tests {
 
         metrom::claim_rewards(
             user,
-            campaign_id,
+            vector[campaign_id],
             vector[
-                x"0000000000000000000000000000000000000000000000000000000000000002"
+                vector[
+                    x"0000000000000000000000000000000000000000000000000000000000000002"
+                ]
             ],
-            reward_token_address,
-            100000000,
-            @0x1
+            vector[reward_token_address],
+            vector[100000000],
+            vector[@0x1]
         );
     }
 
@@ -149,13 +188,15 @@ module metrom::claim_rewards_tests {
 
         metrom::claim_rewards(
             user,
-            campaign_id,
+            vector[campaign_id],
             vector[
-                x"84f88ea9ca7c8d787a9e7e4fb299d21f20e355b30af49bb50baf163f2f0aa9b3"
+                vector[
+                    x"84f88ea9ca7c8d787a9e7e4fb299d21f20e355b30af49bb50baf163f2f0aa9b3"
+                ]
             ],
-            reward_token_address,
-            10100000000,
-            @0x1
+            vector[reward_token_address],
+            vector[10100000000],
+            vector[@0x1]
         );
     }
 
@@ -193,24 +234,28 @@ module metrom::claim_rewards_tests {
 
         metrom::claim_rewards(
             user,
-            campaign_id,
+            vector[campaign_id],
             vector[
-                x"84f88ea9ca7c8d787a9e7e4fb299d21f20e355b30af49bb50baf163f2f0aa9b3"
+                vector[
+                    x"84f88ea9ca7c8d787a9e7e4fb299d21f20e355b30af49bb50baf163f2f0aa9b3"
+                ]
             ],
-            reward_token_address,
-            900000000,
-            @0x1
+            vector[reward_token_address],
+            vector[900000000],
+            vector[@0x1]
         );
 
         metrom::claim_rewards(
             user,
-            campaign_id,
+            vector[campaign_id],
             vector[
-                x"84f88ea9ca7c8d787a9e7e4fb299d21f20e355b30af49bb50baf163f2f0aa9b3"
+                vector[
+                    x"84f88ea9ca7c8d787a9e7e4fb299d21f20e355b30af49bb50baf163f2f0aa9b3"
+                ]
             ],
-            reward_token_address,
-            900000000,
-            @0x1
+            vector[reward_token_address],
+            vector[900000000],
+            vector[@0x1]
         );
     }
 
@@ -256,13 +301,15 @@ module metrom::claim_rewards_tests {
         assert!(test_token::balance_of(token, receiver) == 0);
         metrom::claim_rewards(
             user,
-            campaign_id,
+            vector[campaign_id],
             vector[
-                x"84f88ea9ca7c8d787a9e7e4fb299d21f20e355b30af49bb50baf163f2f0aa9b3"
+                vector[
+                    x"84f88ea9ca7c8d787a9e7e4fb299d21f20e355b30af49bb50baf163f2f0aa9b3"
+                ]
             ],
-            reward_token_address,
-            tests_base::octas(9),
-            receiver
+            vector[reward_token_address],
+            vector[tests_base::octas(9)],
+            vector[receiver]
         );
         assert!(
             test_token::balance_of(token, metrom_treasury_address)
@@ -325,14 +372,16 @@ module metrom::claim_rewards_tests {
         assert!(test_token::balance_of(token, receiver) == 0);
         metrom::claim_rewards(
             user,
-            campaign_id,
+            vector[campaign_id],
             vector[
-                x"9f804541de0f7b549aeca4c190399ab666624f9ed6959da2bbc6b43333eb6e5d",
-                x"7f897bb769bce4051942ed7a5cd67d8378b6a2c02fa798db8982e71070eac36a"
+                vector[
+                    x"9f804541de0f7b549aeca4c190399ab666624f9ed6959da2bbc6b43333eb6e5d",
+                    x"7f897bb769bce4051942ed7a5cd67d8378b6a2c02fa798db8982e71070eac36a"
+                ]
             ],
-            reward_token_address,
-            tests_base::octas(9),
-            receiver
+            vector[reward_token_address],
+            vector[tests_base::octas(9)],
+            vector[receiver]
         );
         assert!(
             test_token::balance_of(token, metrom_treasury_address)

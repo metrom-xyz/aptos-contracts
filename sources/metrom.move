@@ -264,6 +264,7 @@ module metrom::metrom {
     const EInvalidFeeToken: u64 = 25;
     const EInvalidProof: u64 = 26;
     const ENoRoot: u64 = 27;
+    const EInconsistentArrayLengths: u64 = 28;
 
     // data structs
 
@@ -840,72 +841,104 @@ module metrom::metrom {
         return false
     }
 
-    /// @notice Claims outstanding rewards on a given rewards campaign.
-    /// @param campaign_id The id of the campaign on which to process the claim.
-    /// @param proof The Merkle inclusion proof required to prove that the claim is valid.
-    /// @param token The token to claim.
-    /// @param token The amount to claim.
-    /// @param token The received to which the claim must be sent.
-    public entry fun claim_rewards(
+    fun process_multiple_claims(
         caller: &signer,
-        campaign_id: vector<u8>,
-        proof: vector<vector<u8>>,
-        token: address,
-        amount: u64,
-        receiver: address
+        campaign_ids: vector<vector<u8>>,
+        proofs: vector<vector<vector<u8>>>,
+        tokens: vector<address>,
+        amounts: vector<u64>,
+        receivers: vector<address>,
+        recovering: bool
     ) acquires State {
+        let campaign_ids_len = campaign_ids.length();
+        assert!(
+            proofs.length() == campaign_ids_len
+                && tokens.length() == campaign_ids_len
+                && amounts.length() == campaign_ids_len
+                && receivers.length() == campaign_ids_len,
+            EInconsistentArrayLengths
+        );
+
         let caller_address = signer::address_of(caller);
-        event::emit(
-            ClaimReward {
-                campaign_id,
-                token,
-                amount: process_reward_claim(
+        for (i in 0..campaign_ids_len) {
+            let campaign_id = campaign_ids[i];
+            let token = tokens[i];
+            let amount = amounts[i];
+            let proof = proofs[i];
+            let receiver = receivers[i];
+
+            let amount =
+                process_reward_claim(
                     caller_address,
                     campaign_id,
-                    caller_address,
+                    if (recovering)@0x0
+                    else caller_address,
                     false,
                     proof,
                     token,
                     amount,
                     receiver
-                ),
-                receiver
-            }
+                );
+
+            if (recovering) event::emit(
+                RecoverReward { campaign_id, token, amount, receiver }
+            )
+            else event::emit(
+                ClaimReward { campaign_id, token, amount, receiver }
+            )
+        }
+    }
+
+    /// @notice Claims outstanding rewards on a given rewards campaign.
+    /// @param campaign_ids The ids of the campaigns on which to process the claim.
+    /// @param proofs The Merkle inclusion proofs required to prove that the claims are valid.
+    /// @param tokens The tokens to claim.
+    /// @param amounts The amounts to claim.
+    /// @param receivers The receivers to which the claims must be sent.
+    public entry fun claim_rewards(
+        caller: &signer,
+        campaign_ids: vector<vector<u8>>,
+        proofs: vector<vector<vector<u8>>>,
+        tokens: vector<address>,
+        amounts: vector<u64>,
+        receivers: vector<address>
+    ) acquires State {
+        process_multiple_claims(
+            caller,
+            campaign_ids,
+            proofs,
+            tokens,
+            amounts,
+            receivers,
+            false
         );
     }
 
     /// @notice Recovers unassigned rewards on a given rewards campaign. This can only be
     /// called by the targeted campaign's owner.
-    /// @param campaign_id The id of the campaign on which to process the recovery.
-    /// @param proof The Merkle inclusion proof required to prove that the recovery is valid.
-    /// @param token The token to recover.
-    /// @param token The amount to recover.
-    /// @param token The received to which the recovered rewards must be sent.
+    /// @param campaign_ids The ids of the campaigns on which to process the claim.
+    /// @param proofs The Merkle inclusion proofs required to prove that the claims are valid.
+    /// @param tokens The tokens to claim.
+    /// @param amounts The amounts to claim.
+    /// @param receivers The receivers to which the claims must be sent.
     public entry fun recover_rewards(
         caller: &signer,
-        campaign_id: vector<u8>,
-        proof: vector<vector<u8>>,
-        token: address,
-        amount: u64,
-        receiver: address
+        campaign_ids: vector<vector<u8>>,
+        proofs: vector<vector<vector<u8>>>,
+        tokens: vector<address>,
+        amounts: vector<u64>,
+        receivers: vector<address>
     ) acquires State {
-        event::emit(
-            RecoverReward {
-                campaign_id,
-                token,
-                amount: process_reward_claim(
-                    signer::address_of(caller),
-                    campaign_id,
-                    @0x0,
-                    true,
-                    proof,
-                    token,
-                    amount,
-                    receiver
-                ),
-                receiver
-            }
+        process_multiple_claims(
+            caller,
+            campaign_ids,
+            proofs,
+            tokens,
+            amounts,
+            receivers,
+            true
         );
+
     }
 
     /// @notice Can be called by Metrom's owner to claim accrued protocol fees.
