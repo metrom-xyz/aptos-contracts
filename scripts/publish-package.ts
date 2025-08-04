@@ -117,9 +117,9 @@ spinner = ora("Checking the on-chain deployment").start();
 const modules = await aptos.getAccountModules({
     accountAddress: metrom.accountAddress,
 });
-if (modules.length !== 1) {
+if (modules.length !== 2) {
     spinner.fail(
-        `Check failed: expected 1 module to be published, but ${modules.length} were instead`,
+        `Check failed: expected 2 module to be published, but ${modules.length} were instead`,
     );
     process.exit(1);
 }
