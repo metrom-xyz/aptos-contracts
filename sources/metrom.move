@@ -694,48 +694,78 @@ module metrom::metrom {
     /// @param campaign_id The id of the campaign to update.
     /// @param root The Merkle root to set for the campaign.
     public entry fun distribute_rewards(
-        caller: &signer, campaign_id: vector<u8>, root: vector<u8>
+        caller: &signer,
+        campaign_ids: vector<vector<u8>>,
+        roots: vector<vector<u8>>
     ) acquires State {
-        validate_hash(option::some(root));
-        let state = borrow_mut_state_for_updater(signer::address_of(caller));
-        assert!(state.rewards_campaign.contains(campaign_id), ENonExistentCampaign);
-        state.rewards_campaign.borrow_mut(campaign_id).root = option::some(root);
-        event::emit(DistributeReward { campaign_id, root });
+        let campaign_ids_len = campaign_ids.length();
+        assert!(
+            roots.length() == campaign_ids_len,
+            EInconsistentArrayLengths
+        );
+
+        for (i in 0..campaign_ids_len) {
+            let campaign_id = campaign_ids[i];
+            let root = roots[i];
+
+            validate_hash(option::some(root));
+            let state = borrow_mut_state_for_updater(signer::address_of(caller));
+            assert!(state.rewards_campaign.contains(campaign_id), ENonExistentCampaign);
+            state.rewards_campaign.borrow_mut(campaign_id).root = option::some(root);
+            event::emit(DistributeReward { campaign_id, root });
+        }
     }
 
     /// @notice Sets the minimum rate for an allowed reward token. Can only be called by
     /// the updater account.
     /// @param token The address of the allowed token.
     /// @param minimum_rate The new minimum rate.
-    public entry fun set_minimum_reward_token_rate(
-        caller: &signer, token: address, minimum_rate: u64
-    ) acquires State {
-        set_minimum_token_rate(caller, token, minimum_rate, false);
-    }
-
-    /// @notice Sets the minimum rate for an allowed fee tokens. Can only be called by
-    /// the updater account.
-    /// @param token The address of the allowed token.
-    /// @param minimum_rate The new minimum rate.
-    public entry fun set_minimum_fee_token_rate(
-        caller: &signer, token: address, minimum_rate: u64
-    ) acquires State {
-        set_minimum_token_rate(caller, token, minimum_rate, true);
-    }
-
-    fun set_minimum_token_rate(
+    public entry fun set_minimum_token_rates(
         caller: &signer,
-        token: address,
-        minimum_rate: u64,
+        reward_tokens: vector<address>,
+        minimum_reward_token_rates: vector<u64>,
+        fee_tokens: vector<address>,
+        minimum_fee_token_rates: vector<u64>
+    ) acquires State {
+        set_minimum_token_rates_inner(
+            caller,
+            reward_tokens,
+            minimum_reward_token_rates,
+            false
+        );
+        set_minimum_token_rates_inner(
+            caller,
+            fee_tokens,
+            minimum_fee_token_rates,
+            true
+        );
+    }
+
+    fun set_minimum_token_rates_inner(
+        caller: &signer,
+        tokens: vector<address>,
+        minimum_rates: vector<u64>,
         fees: bool
     ) acquires State {
+        let tokens_len = tokens.length();
+        assert!(
+            minimum_rates.length() == tokens_len,
+            EInconsistentArrayLengths
+        );
+
         let state = borrow_mut_state_for_updater(signer::address_of(caller));
-        if (fees) {
-            state.minimum_fee_token_rate.upsert(token, minimum_rate);
-            event::emit(SetMinimumFeeTokenRate { token, minimum_rate });
-        } else {
-            state.minimum_reward_token_rate.upsert(token, minimum_rate);
-            event::emit(SetMinimumRewardTokenRate { token, minimum_rate });
+
+        for (i in 0..tokens_len) {
+            let token = tokens[i];
+            let minimum_rate = minimum_rates[i];
+
+            if (fees) {
+                state.minimum_fee_token_rate.upsert(token, minimum_rate);
+                event::emit(SetMinimumFeeTokenRate { token, minimum_rate });
+            } else {
+                state.minimum_reward_token_rate.upsert(token, minimum_rate);
+                event::emit(SetMinimumRewardTokenRate { token, minimum_rate });
+            }
         }
     }
 

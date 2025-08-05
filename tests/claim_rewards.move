@@ -111,8 +111,8 @@ module metrom::claim_rewards_tests {
         let (campaign_id, _) = tests_base::create_default_rewards_campaign(user, user);
         metrom::distribute_rewards(
             user,
-            campaign_id,
-            x"0000000000000000000000000000000000000000000000000000000000000001"
+            vector[campaign_id],
+            vector[x"0000000000000000000000000000000000000000000000000000000000000001"]
         );
         metrom::claim_rewards(
             user,
@@ -136,8 +136,8 @@ module metrom::claim_rewards_tests {
 
         metrom::distribute_rewards(
             user,
-            campaign_id,
-            x"0000000000000000000000000000000000000000000000000000000000000001"
+            vector[campaign_id],
+            vector[x"0000000000000000000000000000000000000000000000000000000000000001"]
         );
 
         metrom::claim_rewards(
@@ -182,8 +182,8 @@ module metrom::claim_rewards_tests {
 
         metrom::distribute_rewards(
             user,
-            campaign_id,
-            x"4e328e811672b717cc6ae55a4a7c22cbde78df71c11d5a51702414748278b19f"
+            vector[campaign_id],
+            vector[x"4e328e811672b717cc6ae55a4a7c22cbde78df71c11d5a51702414748278b19f"]
         );
 
         metrom::claim_rewards(
@@ -228,8 +228,8 @@ module metrom::claim_rewards_tests {
 
         metrom::distribute_rewards(
             user,
-            campaign_id,
-            x"9d8a777a3b0223af8f444323a7262e629b240e6f0814e296bb51b70acb2da439"
+            vector[campaign_id],
+            vector[x"9d8a777a3b0223af8f444323a7262e629b240e6f0814e296bb51b70acb2da439"]
         );
 
         metrom::claim_rewards(
@@ -292,8 +292,8 @@ module metrom::claim_rewards_tests {
 
         metrom::distribute_rewards(
             user,
-            campaign_id,
-            x"9d8a777a3b0223af8f444323a7262e629b240e6f0814e296bb51b70acb2da439"
+            vector[campaign_id],
+            vector[x"9d8a777a3b0223af8f444323a7262e629b240e6f0814e296bb51b70acb2da439"]
         );
 
         let receiver = @0x119991;
@@ -363,8 +363,8 @@ module metrom::claim_rewards_tests {
 
         metrom::distribute_rewards(
             user,
-            campaign_id,
-            x"06eae8437fb44ca7f4e3f5b113a60d9d8f6b52f890006393299fb5dc843cead9"
+            vector[campaign_id],
+            vector[x"06eae8437fb44ca7f4e3f5b113a60d9d8f6b52f890006393299fb5dc843cead9"]
         );
 
         let receiver = @0x119991;

@@ -13,7 +13,7 @@ module metrom::distribute_rewards_tests {
 
         let (campaign_id, _) = tests_base::create_default_rewards_campaign(owner, owner);
 
-        metrom::distribute_rewards(owner, campaign_id, vector[0u8]);
+        metrom::distribute_rewards(owner, vector[campaign_id], vector[vector[0u8]]);
     }
 
     #[test(aptos = @aptos_framework, metrom = @metrom, owner = @0x50)]
@@ -26,8 +26,8 @@ module metrom::distribute_rewards_tests {
 
         metrom::distribute_rewards(
             owner,
-            campaign_id,
-            x"0000000000000000000000000000000000000000000000000000000000000000"
+            vector[campaign_id],
+            vector[x"0000000000000000000000000000000000000000000000000000000000000000"]
         );
     }
 
@@ -41,8 +41,8 @@ module metrom::distribute_rewards_tests {
 
         metrom::distribute_rewards(
             owner,
-            x"0000000000000000000000000000000000000000000000000000000000000001",
-            x"0000000000000000000000000000000000000000000000000000000000000001"
+            vector[x"0000000000000000000000000000000000000000000000000000000000000001"],
+            vector[x"0000000000000000000000000000000000000000000000000000000000000001"]
         );
     }
 
@@ -53,7 +53,7 @@ module metrom::distribute_rewards_tests {
 
         let root = x"0000000000000000000000000000000000000000000000000000000000000001";
         let (campaign_id, _) = tests_base::create_default_rewards_campaign(owner, owner);
-        metrom::distribute_rewards(owner, campaign_id, root);
+        metrom::distribute_rewards(owner, vector[campaign_id], vector[root]);
         metrom::assert_rewards_campaign_root(campaign_id, root);
     }
 }
