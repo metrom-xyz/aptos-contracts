@@ -464,17 +464,12 @@ module metrom::metrom {
     /// @param minimum_campaign_duration The initial minimum campaign duration.
     /// @param maximum_campaign_duration The initial maximum campaign duration.
     public entry fun init_state(
-        caller: &signer,
         owner: address,
         updater: address,
         fee: u32,
         minimum_campaign_duration: u64,
         maximum_campaign_duration: u64
     ) acquires State {
-        assert!(
-            signer::address_of(caller) == @metrom,
-            EForbidden
-        );
         assert!(fee < U32_1_000_000, EInvalidFee);
         assert!(
             minimum_campaign_duration < maximum_campaign_duration,

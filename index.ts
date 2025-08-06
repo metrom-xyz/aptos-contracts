@@ -4,13 +4,13 @@ export interface ChainContract {
 }
 
 export enum SupportedChain {
-    Devnet = "devnet",
+    Testnet = "testnet",
 }
 
 export const ADDRESS: Record<SupportedChain, ChainContract> = {
-    [SupportedChain.Devnet]: {
+    [SupportedChain.Testnet]: {
         address:
-            "0x98ec7cca4b5e32ec8288bbb593bd4cbb570f7203cc9e9e9efad8d25af3ceb6e2",
-        blockCreated: 18437390,
+            "0x8ca73e071810f46d1d6dcf7762e3f5c0da657fe7bce2cab93a77e2316afb4537",
+        blockCreated: 500110776,
     },
 };

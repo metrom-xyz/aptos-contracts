@@ -2,7 +2,7 @@ module metrom::helper {
     use std::string::{String};
 
     use aptos_framework::fungible_asset::{Self, Metadata};
-    use aptos_framework::object::{Self, Object};
+    use aptos_framework::object::{Self};
 
     #[view]
     public fun get_token_metadata(token: address): (u8, String, String) {

@@ -21,7 +21,6 @@
         "prepare": "husky",
         "publish-package": "tsx ./scripts/publish-package.ts",
         "set-minimum-reward-token-ratio": "tsx ./scripts/set-minimum-reward-token-ratio.ts",
-        "publish-package:devnet": "pnpm publish-package --network devnet --updater \"0x2dd2628c616959a4588c9e1e9893d3deaf0d598e4559d9013c5daba198457633\" --fee 15000 --minimum-campaign-duration 600 --maximum-campaign-duration 7776000 --owner \"0x2dd2628c616959a4588c9e1e9893d3deaf0d598e4559d9013c5daba198457633\"",
         "prepublishOnly": "tsc"
     },
     "devDependencies": {

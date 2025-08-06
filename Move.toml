@@ -5,7 +5,6 @@ authors = ["Federico Luzzi <federico.luzzi@metrom.xyz>"]
 
 [addresses]
 metrom = "_"
-test-account = "0x6c757a7a69666f7373"
 
 [dependencies.AptosFramework]
 git = "https://github.com/aptos-labs/aptos-framework.git"
