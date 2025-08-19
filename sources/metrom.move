@@ -56,7 +56,7 @@ module metrom::metrom {
     /// @param specification_hash The campaign's specification hash.
     /// @param reward_tokens A list of the reward tokens used to create the campaign.
     /// @param reward_amounts A list of the reward amounts used to create the campaign.
-    /// @param A list of the fees paid to create the campaign.
+    /// @param reward_fees A list of the fees paid to create the campaign.
     struct CreateRewardsCampaign has drop, store {
         id: vector<u8>,
         owner: address,
@@ -97,7 +97,7 @@ module metrom::metrom {
 
     #[event]
     /// @notice Emitted when the campaigns updater distributes rewards on a campaign.
-    /// @param campaign_id The id of the campaign. on which the rewards were distributed.
+    /// @param campaign_id The id of the campaign on which the rewards were distributed.
     /// @param root The updated Merkle root for the campaign.
     struct DistributeReward has drop, store {
         campaign_id: vector<u8>,
@@ -157,7 +157,7 @@ module metrom::metrom {
     /// @notice Emitted when Metrom's module owner claims accrued fees.
     /// @param token The claimed token.
     /// @param amount The claimed amount.
-    /// @param receiver The claims's receiver.
+    /// @param receiver The claim's receiver.
     struct ClaimFee has drop, store {
         token: address,
         amount: u64,
@@ -166,7 +166,7 @@ module metrom::metrom {
 
     #[event]
     /// @notice Emitted when a campaign's ownership transfer is initiated.
-    /// @param id The targeted campaign's id.
+    /// @param id The id of the targeted campaign.
     /// @param owner The new desired owner.
     struct TransferCampaignOwnership has drop, store {
         campaign_id: vector<u8>,
@@ -175,8 +175,8 @@ module metrom::metrom {
 
     #[event]
     /// @notice Emitted when a campaign's current pending owner accepts its ownership.
-    /// @param id The targete campaign's id.
-    /// @param owner The targete campaign's new owner.
+    /// @param campaign_id The id of the targeted campaign.
+    /// @param owner The new owner of the targeted campaign.
     struct AcceptCampaignOwnership has drop, store {
         campaign_id: vector<u8>,
         owner: address
@@ -428,7 +428,7 @@ module metrom::metrom {
 
     /// @notice Standard module initialization function. Sets up internal state in a basic way,
     /// and needs the `init_state` function to be called to finish initialization.
-    entry fun init_module(caller: &signer) {
+    fun init_module(caller: &signer) {
         let caller_address = signer::address_of(caller);
         assert!(caller_address == @metrom, EForbidden);
 
@@ -502,7 +502,7 @@ module metrom::metrom {
     /// @param kind The kind of the campaign.
     /// @param data The BCS-encoded campaign's additional data.
     /// @param specification_hash The specification hash for the campaign, optionally
-    /// pointing fo a file containing the JSON specification for the campaign.
+    /// pointing to a file containing the JSON specification for the campaign.
     /// @param reward_tokens The reward tokens for the campaign.
     /// @param reward_amounts The reward amounts for the campaign.
     public entry fun create_rewards_campaign(
@@ -522,6 +522,7 @@ module metrom::metrom {
 
         let id =
             rewards_campaign_id(
+                signer::address_of(caller),
                 from,
                 to,
                 kind,
@@ -567,7 +568,7 @@ module metrom::metrom {
             );
 
             let received_amount = take_token_amount(state, token, caller, amount);
-            let fee_amount = amount * (resolved_fee as u64) / U64_1_000_000;
+            let fee_amount = received_amount * (resolved_fee as u64) / U64_1_000_000;
             let reward_amount_minus_fees = received_amount - fee_amount;
             *state.claimable_fees.borrow_mut_with_default(token, 0) += fee_amount;
 
@@ -621,7 +622,7 @@ module metrom::metrom {
     /// @param kind The kind of the campaign.
     /// @param data The BCS-encoded campaign's additional data.
     /// @param specification_hash The specification hash for the campaign, optionally
-    /// pointing fo a file containing the JSON specification for the campaign.
+    /// pointing to a file containing the JSON specification for the campaign.
     /// @param points The points to distribute.
     /// @param fee_token The token with which to pay the creation fee.
     public entry fun create_points_campaign(
@@ -640,6 +641,7 @@ module metrom::metrom {
         let state = borrow_mut_state();
         let id =
             points_campaign_id(
+                signer::address_of(caller),
                 from,
                 to,
                 kind,
@@ -668,8 +670,8 @@ module metrom::metrom {
         let fee_amount = minimum_fee_token_rate * duration / U64_1_HOUR_SECONDS;
         let fee_amount = fee_amount * ((U32_1_000_000 - fee_rebate) as u64) / U64_1_000_000;
 
-        let received_amount = take_token_amount(state, fee_token, caller, fee_amount);
-        *state.claimable_fees.borrow_mut_with_default(fee_token, 0) += received_amount;
+        let received_fee_amount = take_token_amount(state, fee_token, caller, fee_amount);
+        *state.claimable_fees.borrow_mut_with_default(fee_token, 0) += received_fee_amount;
 
         state.points_campaign.add(
             id,
@@ -684,12 +686,27 @@ module metrom::metrom {
                 points
             }
         );
+
+        event::emit(
+            CreatePointsCampaign {
+                id,
+                owner: caller_address,
+                from,
+                to,
+                kind,
+                data,
+                specification_hash,
+                points,
+                fee_token,
+                fee: received_fee_amount
+            }
+        );
     }
 
     /// @notice Distributes rewards on a campaign. This function must be called by
     /// the updater.
-    /// @param campaign_id The id of the campaign to update.
-    /// @param root The Merkle root to set for the campaign.
+    /// @param campaign_ids The id of the campaigns to update.
+    /// @param roots The Merkle roots to set for the campaigns.
     public entry fun distribute_rewards(
         caller: &signer,
         campaign_ids: vector<vector<u8>>,
@@ -713,10 +730,12 @@ module metrom::metrom {
         }
     }
 
-    /// @notice Sets the minimum rate for an allowed reward token. Can only be called by
+    /// @notice Sets the minimum rates for an allowed reward and fee tokens. Can only be called by
     /// the updater account.
-    /// @param token The address of the allowed token.
-    /// @param minimum_rate The new minimum rate.
+    /// @param reward_tokens The address of the allowed reward tokens.
+    /// @param minimum_reward_token_rates The new minimum rate for the reward tokens.
+    /// @param fee_tokens The address of the allowed fee tokens.
+    /// @param minimum_fee_token_rates The new minimum rate for the fee tokens.
     public entry fun set_minimum_token_rates(
         caller: &signer,
         reward_tokens: vector<address>,
@@ -970,7 +989,7 @@ module metrom::metrom {
 
     /// @notice Can be called by Metrom's owner to claim accrued protocol fees.
     /// @param token The token to claim.
-    /// @param token The receiver of the claim.
+    /// @param receiver The receiver of the claim.
     public entry fun claim_fees(
         caller: &signer, token: address, receiver: address
     ) acquires State {
@@ -1013,7 +1032,7 @@ module metrom::metrom {
         event::emit(TransferCampaignOwnership { campaign_id: id, owner });
     }
 
-    /// @notice Finalized an ownership transfer operation for a campaign. This can only be
+    /// @notice Finalizes an ownership transfer operation for a campaign. This can only be
     /// called by the current campaign pending owner to accept ownership of it.
     /// @param id The id of the targeted campaign.
     public entry fun accept_campaign_ownership(
@@ -1031,7 +1050,9 @@ module metrom::metrom {
             rewards_campaign.pending_owner = option::none();
         } else if (state.points_campaign.contains(id)) {
             let points_campaign = state.points_campaign.borrow_mut(id);
-            assert!(points_campaign.owner == caller_address, EForbidden);
+            assert!(
+                points_campaign.pending_owner.contains(&caller_address), EForbidden
+            );
             points_campaign.owner = caller_address;
             points_campaign.pending_owner = option::none();
         } else {
@@ -1122,6 +1143,7 @@ module metrom::metrom {
 
     #[view]
     public fun rewards_campaign_id(
+        creator_address: address,
         from: u64,
         to: u64,
         kind: u32,
@@ -1130,7 +1152,8 @@ module metrom::metrom {
         reward_tokens: vector<address>,
         reward_amounts: vector<u64>
     ): vector<u8> {
-        let out = bcs::to_bytes(&from);
+        let out = bcs::to_bytes(&creator_address);
+        out.append(bcs::to_bytes(&from));
         out.append(bcs::to_bytes(&to));
         out.append(bcs::to_bytes(&kind));
         out.append(bcs::to_bytes(&data));
@@ -1142,6 +1165,7 @@ module metrom::metrom {
 
     #[view]
     public fun points_campaign_id(
+        creator_address: address,
         from: u64,
         to: u64,
         kind: u32,
@@ -1150,7 +1174,8 @@ module metrom::metrom {
         points: u64,
         fee_token: address
     ): vector<u8> {
-        let out = bcs::to_bytes(&from);
+        let out = bcs::to_bytes(&creator_address);
+        out.append(bcs::to_bytes(&from));
         out.append(bcs::to_bytes(&to));
         out.append(bcs::to_bytes(&kind));
         out.append(bcs::to_bytes(&data));

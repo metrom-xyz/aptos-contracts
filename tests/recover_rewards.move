@@ -7,12 +7,10 @@ module metrom::recover_rewards_tests {
         ENoRewardAmount,
         ENonExistentCampaign,
         ENonExistentReward,
-        EInconsistentClaimedRewardAmount,
         ENoRoot,
         EInvalidProof
     };
     use metrom::tests_base;
-    use metrom::test_token;
 
     #[test(aptos = @aptos_framework, metrom = @metrom, user = @0x50)]
     #[expected_failure(abort_code = EZeroAddressReceiver)]

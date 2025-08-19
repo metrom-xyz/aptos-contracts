@@ -185,6 +185,7 @@ module metrom::tests_base {
 
         (
             metrom::rewards_campaign_id(
+                signer::address_of(caller),
                 from,
                 to,
                 kind,
@@ -254,6 +255,7 @@ module metrom::tests_base {
 
         (
             metrom::points_campaign_id(
+                signer::address_of(caller),
                 from,
                 to,
                 kind,

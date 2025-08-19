@@ -4,7 +4,6 @@ module metrom::init_state_tests {
 
     use metrom::metrom::{
         Self,
-        EForbidden,
         EInvalidFee,
         EInvalidMinimumCampaignDuration,
         EAlreadyInitialized
