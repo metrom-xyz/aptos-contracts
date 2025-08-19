@@ -104,7 +104,6 @@ module metrom::tests_base {
     ) {
         metrom::test_init_module(metrom);
         metrom::init_state(
-            metrom,
             signer::address_of(owner),
             signer::address_of(updater),
             fee,
@@ -116,14 +115,26 @@ module metrom::tests_base {
     public fun set_minimum_reward_rate(
         updater: &signer, token: address, rate: u64
     ) {
-        metrom::set_minimum_token_rates(updater, vector[token], vector[rate], vector[], vector[]);
+        metrom::set_minimum_token_rates(
+            updater,
+            vector[token],
+            vector[rate],
+            vector[],
+            vector[]
+        );
         assert!(metrom::minimum_reward_token_rate(token) == rate);
     }
 
     public fun set_minimum_fee_rate(
         updater: &signer, token: address, rate: u64
     ) {
-        metrom::set_minimum_token_rates(updater, vector[], vector[], vector[token], vector[rate]);
+        metrom::set_minimum_token_rates(
+            updater,
+            vector[],
+            vector[],
+            vector[token],
+            vector[rate]
+        );
         assert!(metrom::minimum_fee_token_rate(token) == rate);
     }
 

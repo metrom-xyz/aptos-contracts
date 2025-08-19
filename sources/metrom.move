@@ -549,6 +549,7 @@ module metrom::metrom {
             ((state.fee as u64) * (U64_1_000_000 - (fee_rebate as u64)) / (U64_1_000_000)) as u32;
 
         let reward = smart_table::new<address, Reward>();
+        let reward_amounts_minus_fees = vector::empty<u64>();
         let reward_fees = vector::empty<u64>();
         for (i in 0..rewards_len) {
             let token = reward_tokens[i];
@@ -570,6 +571,7 @@ module metrom::metrom {
             let reward_amount_minus_fees = received_amount - fee_amount;
             *state.claimable_fees.borrow_mut_with_default(token, 0) += fee_amount;
 
+            reward_amounts_minus_fees.push_back(reward_amount_minus_fees);
             reward_fees.push_back(fee_amount);
 
             if (reward.contains(token)) {
@@ -607,7 +609,7 @@ module metrom::metrom {
                 data,
                 specification_hash,
                 reward_tokens,
-                reward_amounts,
+                reward_amounts: reward_amounts_minus_fees,
                 reward_fees
             }
         );
@@ -898,7 +900,7 @@ module metrom::metrom {
                     campaign_id,
                     if (recovering)@0x0
                     else caller_address,
-                    false,
+                    recovering,
                     proof,
                     token,
                     amount,
