@@ -11,12 +11,12 @@ export enum SupportedChain {
 export const ADDRESS: Record<SupportedChain, ChainContract> = {
     [SupportedChain.Testnet]: {
         address:
-            "0x8ca73e071810f46d1d6dcf7762e3f5c0da657fe7bce2cab93a77e2316afb4537",
-        blockCreated: 500110776,
+            "0xb0359fb67f74ce2dd11c9b219be4b2f00569e6b55912e2145a8e69df1497ce67",
+        blockCreated: 6854139736,
     },
     [SupportedChain.Mainnet]: {
         address:
-            "0xcc51d5050370aa937794e5e91c57e132fdfd182a5885ceadf6adce0106e32cd9",
-        blockCreated: 3308740396,
+            "0xd438cb1c136b04beb5b832d2ab1e63c73d1d1a95fe3e8eb1a79d1e86b746a42b",
+        blockCreated: 3353134305,
     },
 };
