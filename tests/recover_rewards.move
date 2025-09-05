@@ -112,6 +112,9 @@ module metrom::recover_rewards_tests {
             vector[campaign_id],
             vector[
                 x"0000000000000000000000000000000000000000000000000000000000000001"
+            ],
+            vector[
+                x"0000000000000000000000000000000000000000000000000000000000000001"
             ]
         );
         metrom::recover_rewards(
@@ -137,6 +140,9 @@ module metrom::recover_rewards_tests {
         metrom::distribute_rewards(
             user,
             vector[campaign_id],
+            vector[
+                x"0000000000000000000000000000000000000000000000000000000000000001"
+            ],
             vector[
                 x"0000000000000000000000000000000000000000000000000000000000000001"
             ]

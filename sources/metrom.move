@@ -99,9 +99,11 @@ module metrom::metrom {
     /// @notice Emitted when the campaigns updater distributes rewards on a campaign.
     /// @param campaign_id The id of the campaign on which the rewards were distributed.
     /// @param root The updated Merkle root for the campaign.
+    /// @param data_hash The data hash for the campaign.
     struct DistributeReward has drop, store {
         campaign_id: vector<u8>,
-        root: vector<u8>
+        root: vector<u8>,
+        data_hash: vector<u8>
     }
 
     #[event]
@@ -710,23 +712,26 @@ module metrom::metrom {
     public entry fun distribute_rewards(
         caller: &signer,
         campaign_ids: vector<vector<u8>>,
-        roots: vector<vector<u8>>
+        roots: vector<vector<u8>>,
+        data_hashes: vector<vector<u8>>
     ) acquires State {
         let campaign_ids_len = campaign_ids.length();
         assert!(
-            roots.length() == campaign_ids_len,
+            roots.length() == campaign_ids_len
+                && data_hashes.length() == campaign_ids_len,
             EInconsistentArrayLengths
         );
 
         for (i in 0..campaign_ids_len) {
             let campaign_id = campaign_ids[i];
             let root = roots[i];
+            let data_hash = data_hashes[i];
 
             validate_hash(option::some(root));
             let state = borrow_mut_state_for_updater(signer::address_of(caller));
             assert!(state.rewards_campaign.contains(campaign_id), ENonExistentCampaign);
             state.rewards_campaign.borrow_mut(campaign_id).root = option::some(root);
-            event::emit(DistributeReward { campaign_id, root });
+            event::emit(DistributeReward { campaign_id, root, data_hash });
         }
     }
 

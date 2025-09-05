@@ -114,6 +114,9 @@ module metrom::claim_rewards_tests {
             vector[campaign_id],
             vector[
                 x"0000000000000000000000000000000000000000000000000000000000000001"
+            ],
+            vector[
+                x"0000000000000000000000000000000000000000000000000000000000000001"
             ]
         );
         metrom::claim_rewards(
@@ -139,6 +142,9 @@ module metrom::claim_rewards_tests {
         metrom::distribute_rewards(
             user,
             vector[campaign_id],
+            vector[
+                x"0000000000000000000000000000000000000000000000000000000000000001"
+            ],
             vector[
                 x"0000000000000000000000000000000000000000000000000000000000000001"
             ]
@@ -189,6 +195,9 @@ module metrom::claim_rewards_tests {
             vector[campaign_id],
             vector[
                 x"4e328e811672b717cc6ae55a4a7c22cbde78df71c11d5a51702414748278b19f"
+            ],
+            vector[
+                x"4e328e811672b717cc6ae55a4a7c22cbde78df71c11d5a51702414748278b19f"
             ]
         );
 
@@ -235,6 +244,9 @@ module metrom::claim_rewards_tests {
         metrom::distribute_rewards(
             user,
             vector[campaign_id],
+            vector[
+                x"9d8a777a3b0223af8f444323a7262e629b240e6f0814e296bb51b70acb2da439"
+            ],
             vector[
                 x"9d8a777a3b0223af8f444323a7262e629b240e6f0814e296bb51b70acb2da439"
             ]
@@ -301,6 +313,9 @@ module metrom::claim_rewards_tests {
         metrom::distribute_rewards(
             user,
             vector[campaign_id],
+            vector[
+                x"9d8a777a3b0223af8f444323a7262e629b240e6f0814e296bb51b70acb2da439"
+            ],
             vector[
                 x"9d8a777a3b0223af8f444323a7262e629b240e6f0814e296bb51b70acb2da439"
             ]
@@ -374,6 +389,9 @@ module metrom::claim_rewards_tests {
         metrom::distribute_rewards(
             user,
             vector[campaign_id],
+            vector[
+                x"06eae8437fb44ca7f4e3f5b113a60d9d8f6b52f890006393299fb5dc843cead9"
+            ],
             vector[
                 x"06eae8437fb44ca7f4e3f5b113a60d9d8f6b52f890006393299fb5dc843cead9"
             ]
