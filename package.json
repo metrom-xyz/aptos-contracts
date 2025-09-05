@@ -1,7 +1,7 @@
 {
     "type": "module",
     "name": "@metrom-xyz/aptos-contracts",
-    "version": "0.7.0",
+    "version": "0.8.0",
     "description": "Aptos smart contracts for Metrom.",
     "author": "Federico Luzzi <federico.luzzi@metrom.xyz>",
     "license": "GPL-3.0-or-later",
