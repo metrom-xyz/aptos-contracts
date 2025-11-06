@@ -21,6 +21,7 @@
         "prepare": "husky",
         "publish-package": "tsx ./scripts/publish-package.ts",
         "set-minimum-reward-token-ratio": "tsx ./scripts/set-minimum-reward-token-ratio.ts",
+        "distribute-rewards": "tsx ./scripts/distribute-rewards.ts",
         "prepublishOnly": "tsc"
     },
     "devDependencies": {
